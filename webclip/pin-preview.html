@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta charset="utf-8">
+<title>PIN Preview</title>
+<style>
+@font-face {
+  font-family: "SF Pro Display";
+  src: url("./SF-Pro-Display-Regular.otf") format("opentype");
+  font-weight: 400;
+}
+@font-face {
+  font-family: "SF Pro Display";
+  src: url("./SF-Pro-Display-Light.otf") format("opentype");
+  font-weight: 300;
+}
+@font-face {
+  font-family: "SF Pro Text";
+  src: url("./SF-Pro-Text-Regular.otf") format("opentype");
+  font-weight: 400;
+}
+@font-face {
+  font-family: "SF Pro Text";
+  src: url("./SF-Pro-Text-Medium.otf") format("opentype");
+  font-weight: 500;
+}
+
+* {
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  -webkit-tap-highlight-color:transparent;
+  user-select:none;
+  -webkit-user-select:none;
+}
+html, body {
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:#030912;
+}
+body {
+  font-family:"SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Background is intentionally approximate; foreground geometry is measured against the real screenshots. */
+.blob {
+  position:fixed;
+  border-radius:50%;
+  pointer-events:none;
+  z-index:0;
+}
+
+#screen {
+  position:fixed;
+  inset:0;
+  z-index:1;
+  background:rgba(0,0,0,0.06);
+  color:#fff;
+  font-family:"SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.actionBtn {
+  position:absolute;
+  bottom:calc(66 / 932 * 100svh);
+  background:none;
+  border:none;
+  padding:0;
+  cursor:pointer;
+  color:#fff;
+  opacity:1;
+  font-family:"SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size:calc(16 / 430 * 100vw);
+  line-height:1;
+  font-weight:400;
+  transition:opacity 120ms ease-out;
+}
+#emergencyBtn { left:calc(63 / 430 * 100vw); }
+#cancelBtn,
+#deleteBtn { right:calc(79 / 430 * 100vw); }
+#deleteBtn {
+  opacity:0;
+  pointer-events:none;
+}
+
+#pinLabel {
+  position:absolute;
+  top:calc(178 / 932 * 100svh);
+  left:50%;
+  transform:translateX(-50%);
+  white-space:nowrap;
+  font-family:"SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size:calc(23 / 430 * 100vw);
+  line-height:1;
+  font-weight:400;
+  color:#fff;
+  letter-spacing:0;
+}
+
+#dots {
+  position:absolute;
+  top:calc(220 / 932 * 100svh);
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  align-items:center;
+  gap:calc(24 / 430 * 100vw);
+}
+.dot {
+  width:calc(13 / 430 * 100vw);
+  height:calc(13 / 430 * 100vw);
+  border-radius:50%;
+  border:1.5px solid rgba(255,255,255,0.78);
+  background:transparent;
+  flex-shrink:0;
+  transition:background-color 120ms ease-out, border-color 120ms ease-out;
+}
+.dot.filled {
+  background:#fff;
+  border-color:#fff;
+}
+
+#keypad {
+  position:absolute;
+  top:calc(316.5 / 932 * 100svh);
+  left:calc(46.5 / 430 * 100vw);
+  display:grid;
+  grid-template-columns:repeat(3, calc(112.25 / 430 * 100vw));
+  grid-template-rows:repeat(4, calc(108.4 / 932 * 100svh));
+  width:calc(336.75 / 430 * 100vw);
+}
+.keyCell {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.keyBtn {
+  position:relative;
+  width:calc(87 / 430 * 100vw);
+  height:calc(87 / 430 * 100vw);
+  border-radius:50%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  flex-shrink:0;
+  color:#fff;
+  background:rgba(255,255,255,0.105);
+  border:1px solid rgba(255,255,255,0.13);
+  -webkit-backdrop-filter:blur(20px) saturate(95%) brightness(0.96);
+  backdrop-filter:blur(20px) saturate(95%) brightness(0.96);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    inset 0 -1px 0 rgba(0,0,0,0.10),
+    0 1px 1.5px rgba(0,0,0,0.08);
+  transition:background-color 120ms ease-out, opacity 120ms ease-out;
+}
+.keyBtn.isPressed {
+  background:rgba(255,255,255,0.26);
+}
+.keyNum {
+  font-family:"SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size:calc(41 / 430 * 100vw);
+  line-height:0.92;
+  font-weight:300;
+  letter-spacing:0;
+  color:#fff;
+}
+.keySub {
+  font-family:"SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size:calc(12 / 430 * 100vw);
+  line-height:1;
+  font-weight:500;
+  letter-spacing:0.22em;
+  color:rgba(255,255,255,0.94);
+  margin-top:calc(6 / 932 * 100svh);
+  padding-left:0.22em;
+}
+
+.keyBtn[data-digit="1"] .keyNum {
+  transform: translateY(calc(-8 / 430 * 100vw));
+}
+
+@keyframes shake {
+  0%  { transform:translateX(-50%) translateX(0); }
+  15% { transform:translateX(-50%) translateX(-9px); }
+  30% { transform:translateX(-50%) translateX(9px); }
+  45% { transform:translateX(-50%) translateX(-6px); }
+  60% { transform:translateX(-50%) translateX(6px); }
+  75% { transform:translateX(-50%) translateX(-3px); }
+  90% { transform:translateX(-50%) translateX(3px); }
+  100%{ transform:translateX(-50%) translateX(0); }
+}
+</style>
+</head>
+<body>
+
+<div class="blob" style="width:calc(390/430*100vw);height:calc(480/932*100svh);left:calc(-50/430*100vw);top:calc(40/932*100svh);background:radial-gradient(ellipse at 45% 45%,#1e6fff,#0e30b0 55%,transparent 85%);filter:blur(12px);opacity:1;"></div>
+<div class="blob" style="width:calc(360/430*100vw);height:calc(420/932*100svh);left:calc(140/430*100vw);top:calc(390/932*100svh);background:radial-gradient(ellipse at 50% 50%,#0ee898,#069060 55%,transparent 85%);filter:blur(12px);opacity:0.8;"></div>
+<div class="blob" style="width:calc(470/430*100vw);height:calc(380/932*100svh);left:calc(-30/430*100vw);top:calc(690/932*100svh);background:radial-gradient(ellipse at 50% 40%,#1a3faa,#0a1850 65%,transparent 90%);filter:blur(12px);opacity:0.95;"></div>
+
+<div id="screen">
+  <button id="emergencyBtn" class="actionBtn">Emergency</button>
+  <button id="cancelBtn" class="actionBtn">Cancel</button>
+  <button id="deleteBtn" class="actionBtn">Delete</button>
+
+  <div id="pinLabel">Enter Passcode</div>
+
+  <div id="dots">
+    <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+  </div>
+
+  <div id="keypad"></div>
+</div>
+
+<script>
+const KEYS = [
+  {d:'1',s:''},   {d:'2',s:'ABC'},  {d:'3',s:'DEF'},
+  {d:'4',s:'GHI'}, {d:'5',s:'JKL'},  {d:'6',s:'MNO'},
+  {d:'7',s:'PQRS'}, {d:'8',s:'TUV'}, {d:'9',s:'WXYZ'},
+  {d:null},       {d:'0',s:''},     {d:null},
+];
+
+let pin = [];
+let attempt = 0;
+const keypad = document.getElementById('keypad');
+const dotsEl = document.getElementById('dots');
+const label = document.getElementById('pinLabel');
+const cancelBtn = document.getElementById('cancelBtn');
+const deleteBtn = document.getElementById('deleteBtn');
+
+cancelBtn.addEventListener('click', doCancel);
+cancelBtn.addEventListener('touchstart', e => { e.preventDefault(); doCancel(); }, {passive:false});
+deleteBtn.addEventListener('click', onDel);
+deleteBtn.addEventListener('touchstart', e => { e.preventDefault(); onDel(); }, {passive:false});
+
+function syncActions() {
+  const has = pin.length > 0;
+  cancelBtn.style.opacity = has ? '0' : '1';
+  cancelBtn.style.pointerEvents = has ? 'none' : 'auto';
+  deleteBtn.style.opacity = has ? '1' : '0';
+  deleteBtn.style.pointerEvents = has ? 'auto' : 'none';
+}
+
+KEYS.forEach(({d, s}) => {
+  const cell = document.createElement('div');
+  cell.className = 'keyCell';
+
+  if (d !== null) {
+    const btn = document.createElement('div');
+    btn.className = 'keyBtn';
+    btn.dataset.digit = d;
+
+    const num = document.createElement('div');
+    num.className = 'keyNum';
+    num.textContent = d;
+    btn.appendChild(num);
+
+    if (s) {
+      const sub = document.createElement('div');
+      sub.className = 'keySub';
+      sub.textContent = s;
+      btn.appendChild(sub);
+    }
+
+    const press = () => {
+      btn.classList.add('isPressed');
+      onDigit(d);
+    };
+    const rel = () => btn.classList.remove('isPressed');
+
+    btn.addEventListener('touchstart', e => { e.preventDefault(); press(); }, {passive:false});
+    btn.addEventListener('touchend', rel);
+    btn.addEventListener('touchcancel', rel);
+    btn.addEventListener('mousedown', press);
+    btn.addEventListener('mouseup', rel);
+    btn.addEventListener('mouseleave', rel);
+
+    cell.appendChild(btn);
+  }
+
+  keypad.appendChild(cell);
+});
+
+function updateDots() {
+  dotsEl.querySelectorAll('.dot').forEach((dot, i) => {
+    dot.classList.toggle('filled', i < pin.length);
+  });
+}
+
+function onDigit(d) {
+  if (pin.length >= 6) return;
+  pin.push(d);
+  updateDots();
+  syncActions();
+  if (pin.length === 6) setTimeout(submit, 350);
+}
+
+function onDel() {
+  if (!pin.length) return;
+  pin.pop();
+  updateDots();
+  syncActions();
+}
+
+function submit() {
+  attempt++;
+  console.log('PIN attempt', attempt, ':', pin.join(''));
+  dotsEl.style.animation = 'shake 0.45s ease';
+  setTimeout(() => {
+    dotsEl.style.animation = '';
+    pin = [];
+    updateDots();
+    syncActions();
+  }, 500);
+}
+
+function doCancel() {
+  label.textContent = 'Looking for Face ID…';
+  setTimeout(() => { label.textContent = 'Enter Passcode'; }, 1400);
+}
+</script>
+</body>
+</html>

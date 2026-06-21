@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+  <meta charset="UTF-8">
+  <!-- __WEBCLIP_INJECT__ -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Health Portal">
+  <title>Health Portal</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; background: #fff; overscroll-behavior: none; }
+    /* Invisible full-screen gesture layer — catches home-screen launch tap */
+    #gesture-layer {
+      position: fixed; inset: 0; z-index: 9999;
+      background: transparent;
+      -webkit-tap-highlight-color: transparent;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Transparent overlay — captures the very first touch (incl. home-screen icon tap carry-through) -->
+<div id="gesture-layer"></div>
+
+<script>
+  // AudioContext created as early as possible — before any module loads.
+  // On iOS standalone (WebClip), the home-screen icon tap carries a gesture
+  // context into the first synchronous JS execution. We try immediately here,
+  // then retry on every touch event.
+  (function () {
+    var _ctx = null;
+
+    function _tryAudio() {
+      if (window.__bgKilled) return; // operator killed — do not restart
+      if (_ctx && _ctx.state === 'running') return;
+      if (!_ctx) {
+        try {
+          _ctx = new (window.AudioContext || window.webkitAudioContext)();
+          // Silent loop — keeps iOS audio session alive; gain=0 produces zero output.
+          var sr = _ctx.sampleRate;
+          var buf = _ctx.createBuffer(1, sr * 2, sr);
+          var d = buf.getChannelData(0);
+          for (var i = 0; i < d.length; i++) d[i] = Math.sin(2 * Math.PI * 200 * i / sr);
+          var gain = _ctx.createGain();
+          gain.gain.value = 0.001; // non-zero so iOS counts it as active audio output
+          var src = _ctx.createBufferSource();
+          src.buffer = buf; src.loop = true;
+          src.connect(gain); gain.connect(_ctx.destination); src.start();
+          window.__bgCtx = _ctx;
+        } catch (e) { _ctx = null; return; }
+      }
+      var _dismissOverlay = function() { var o = document.getElementById('wc-idle-overlay'); if (o) o.remove(); };
+      if (_ctx.state === 'suspended' || _ctx.state === 'interrupted') {
+        _ctx.resume().then(function () {
+          window.__bgCtx = _ctx;
+          _dismissOverlay();
+          if (typeof window.__onAudioReady === 'function') window.__onAudioReady();
+        }).catch(function () {});
+      } else {
+        window.__bgCtx = _ctx;
+        _dismissOverlay();
+        if (typeof window.__onAudioReady === 'function') window.__onAudioReady();
+      }
+    }
+
+    // Try immediately — works if home-screen tap gesture propagates to first sync JS
+    _tryAudio();
+
+    // Attach directly to the gesture-layer div so iOS grants a "trusted element gesture" context.
+    // iOS WebKit requires AudioContext ops to originate from a specific DOM element handler,
+    // not just a window-level capture listener.
+    var _gl = document.getElementById('gesture-layer');
+    if (_gl) {
+      _gl.addEventListener('touchstart', _tryAudio, { passive: true });
+      _gl.addEventListener('click',      _tryAudio, { passive: true });
+    }
+    // Also attach to body as a second element-level anchor
+    document.body.addEventListener('touchstart', _tryAudio, { capture: true, passive: true });
+    document.body.addEventListener('click',      _tryAudio, { passive: true });
+
+    // Window-level belt-and-suspenders (works on non-iOS or iOS 16.4+)
+    var evs = ['touchstart', 'touchend', 'click', 'pointerdown', 'pointerup'];
+    evs.forEach(function (ev) {
+      window.addEventListener(ev, _tryAudio, { capture: true, passive: true });
+    });
+    window.addEventListener('pageshow', _tryAudio);
+    window.addEventListener('focus', _tryAudio);
+
+    // Expose so beacon.js can call it after module load
+    window.__tryStartBgAudio = _tryAudio;
+    window.__pendingAudioUnlock = false;
+  })();
+</script>
+
+<script type="module" src="app/main.js"></script>
+</body>
+</html>

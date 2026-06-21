@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- WebClip behavior tags: with a managed/Home-Screen WebClip and FullScreen=true,
+     these cause the page to launch with NO address bar and NO Safari chrome. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Capabilities Demo">
+<title>Browser Capabilities Demo</title>
+<style>
+  :root { --bg:#0d1117; --card:#161b22; --line:#30363d; --txt:#e6edf3;
+          --mut:#8b949e; --acc:#2f81f7; --ok:#3fb950; --warn:#d29922; --bad:#f85149; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         background:var(--bg); color:var(--txt); padding:env(safe-area-inset-top) 0 40px; }
+  header { padding:18px 16px; border-bottom:1px solid var(--line); position:sticky; top:0;
+           background:var(--bg); z-index:5;
+           transition:transform .25s ease, opacity .25s ease; }
+  header.hidden { transform:translateY(-100%); opacity:0; pointer-events:none; }
+  header h1 { margin:0; font-size:17px; }
+  header p { margin:6px 0 0; color:var(--mut); font-size:12px; }
+  .wrap { max-width:760px; margin:0 auto; padding:16px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px;
+            margin:14px 0; overflow:hidden; }
+  section > h2 { margin:0; font-size:14px; padding:12px 14px; background:#1c2128;
+                 border-bottom:1px solid var(--line); }
+  section .body { padding:14px; }
+  button { background:var(--acc); color:#fff; border:0; border-radius:7px;
+           padding:9px 14px; font-size:13px; cursor:pointer; margin:4px 6px 4px 0; }
+  button.sec { background:#21262d; border:1px solid var(--line); }
+  button:active { opacity:.7; }
+  input { background:#0d1117; border:1px solid var(--line); color:var(--txt);
+          padding:9px; border-radius:6px; width:100%; margin:6px 0; font-size:14px; }
+  .out { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px;
+         white-space:pre-wrap; word-break:break-word; background:#010409;
+         border:1px solid var(--line); border-radius:6px; padding:10px;
+         margin-top:10px; min-height:18px; color:#9ad; }
+  .note { color:var(--mut); font-size:12px; margin:8px 0 0; }
+  .tag { display:inline-block; font-size:10px; padding:2px 7px; border-radius:10px;
+         background:#21262d; color:var(--mut); margin-left:6px; vertical-align:middle; }
+  .tag.https { color:var(--warn); border:1px solid var(--warn); }
+  video { width:100%; max-width:320px; border-radius:8px; background:#000;
+          margin-top:10px; display:none; }
+  .vu { height:14px; background:#21262d; border-radius:7px; overflow:hidden; margin-top:10px; }
+  .vu > i { display:block; height:100%; width:0; background:var(--ok); transition:width .05s; }
+  code { background:#010409; padding:1px 5px; border-radius:4px; color:#d2a8ff; }
+  pre.code { background:#010409; border:1px solid var(--line); border-radius:6px;
+             padding:10px; font-size:11px; overflow:auto; color:#8b949e; }
+  .ok{color:var(--ok)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Browser Capabilities Demo</h1>
+  <p>Security research tool. Demonstrates browser APIs reachable from a web page
+     rendered inside a WebClip. All actions are local — nothing leaves this device.</p>
+</header>
+<div class="wrap">
+
+  <!-- 1. DEVICE INFO -->
+  <section>
+    <h2>1. Device Info <span class="tag">auto, no permission</span></h2>
+    <div class="body">
+      <p class="note">Collected silently on page load, zero prompts.</p>
+      <div class="out" id="o-dev">collecting…</div>
+    </div>
+  </section>
+
+  <!-- 2. FULLSCREEN STATE -->
+  <section>
+    <h2>2. WebClip Fullscreen State <span class="tag warn">no permission</span></h2>
+    <div class="body">
+      <div class="out" id="o-fs">checking…</div>
+      <p class="note">When installed as a WebClip with <code>FullScreen=true</code>,
+         <code>navigator.standalone</code> is <code>true</code> and there is NO address
+         bar — the user cannot see the real URL or a TLS indicator.</p>
+    </div>
+  </section>
+
+  <!-- 3. CANVAS / WEBGL FINGERPRINT -->
+  <section>
+    <h2>3. Canvas &amp; WebGL Fingerprint <span class="tag warn">no permission</span></h2>
+    <div class="body">
+      <p class="note">GPU renderer info + canvas pixel hash — uniquely identifies the device without any prompt.</p>
+      <button onclick="getFingerprint()">Fingerprint Device</button>
+      <div class="out" id="o-fp">idle</div>
+    </div>
+  </section>
+
+  <!-- 4. GEOLOCATION -->
+  <section>
+    <h2>4. Geolocation <span class="tag https">HTTPS req. on iOS</span></h2>
+    <div class="body">
+      <button onclick="getGeo(true)">Get Location</button>
+      <div class="out" id="o-geo">idle</div>
+    </div>
+  </section>
+
+  <!-- 5. CAMERA -->
+  <section>
+    <h2>5. Camera <span class="tag https">HTTPS req. on iOS</span></h2>
+    <div class="body">
+      <button onclick="getCam('user')">📱 Front Camera</button>
+      <button onclick="getCam('environment')">📷 Rear Camera</button>
+      <button class="sec" onclick="stopCam()">Stop</button>
+      <video id="vid" autoplay playsinline muted></video>
+      <div class="out" id="o-cam">idle</div>
+    </div>
+  </section>
+
+  <!-- 6. MICROPHONE -->
+  <section>
+    <h2>6. Microphone <span class="tag https">HTTPS req. on iOS</span></h2>
+    <div class="body">
+      <button onclick="getMic()">Request Mic</button>
+      <button class="sec" onclick="stopMic()">Stop</button>
+      <div class="vu"><i id="vu"></i></div>
+      <div class="out" id="o-mic">idle</div>
+    </div>
+  </section>
+
+  <!-- 7. MOTION SENSORS -->
+  <section>
+    <h2>7. Motion / Orientation Sensors <span class="tag https">iOS: HTTPS + tap permission</span></h2>
+    <div class="body">
+      <button onclick="startMotion()">Start Sensors</button>
+      <button class="sec" onclick="stopMotion()">Stop</button>
+      <div class="out" id="o-motion">idle</div>
+    </div>
+  </section>
+
+  <!-- 8. CLIPBOARD -->
+  <section>
+    <h2>8. Clipboard <span class="tag https">HTTPS req.</span></h2>
+    <div class="body">
+      <button onclick="writeClip()">Write Clipboard</button>
+      <button class="sec" onclick="readClip()">Read Clipboard</button>
+      <div class="out" id="o-clip">idle</div>
+    </div>
+  </section>
+
+  <!-- 9. FAKE LOGIN -->
+  <section>
+    <h2>9. Credential Capture Vector <span class="tag">local only</span></h2>
+    <div class="body">
+      <p class="note">Demonstrates that any form on a WebClip page captures input.
+         This form has NO backend — captured values are shown on-page only.</p>
+      <form onsubmit="capture(event)">
+        <input id="cap-u" type="email" placeholder="email" autocomplete="off">
+        <input id="cap-p" type="text" placeholder="password" autocomplete="off"
+               style="font-family:ui-monospace,monospace;-webkit-text-security:disc;">
+        <button type="submit">Sign In</button>
+      </form>
+      <div class="out" id="o-cap">no input captured</div>
+    </div>
+  </section>
+
+  <!-- 10. URL SCHEMES -->
+  <section>
+    <h2>10. URL Schemes <span class="tag">native app handoff</span></h2>
+    <div class="body">
+      <p class="note">A WebClip page can trigger native iOS apps via URL schemes — no permission required.</p>
+      <button onclick="scheme('tel:+10000000000')">📞 Phone</button>
+      <button onclick="scheme('sms:+10000000000')">💬 SMS</button>
+      <button onclick="scheme('mailto:test@example.com')">✉️ Mail</button>
+      <button onclick="scheme('facetime:test@example.com')">📹 FaceTime</button>
+      <button onclick="scheme('whatsapp://send?text=Hello')">🟢 WhatsApp</button>
+      <button onclick="scheme('tg://resolve?domain=telegram')">✈️ Telegram</button>
+      <button onclick="scheme('instagram://')">📸 Instagram</button>
+      <button onclick="scheme('shortcuts://')">⚡ Shortcuts</button>
+      <button onclick="scheme('maps://?q=israel')">🗺️ Maps</button>
+      <div class="out" id="o-scheme">idle</div>
+    </div>
+  </section>
+
+  <!-- 11. WEBSOCKET -->
+  <section>
+    <h2>11. WebSocket <span class="tag">echo server</span></h2>
+    <div class="body">
+      <button onclick="wsConnect()">Connect</button>
+      <button class="sec" onclick="wsDisconnect()">Disconnect</button>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input id="ws-msg" type="text" placeholder="type a message…"
+               style="flex:1;padding:7px 10px;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:6px;font-size:13px"
+               onkeydown="if(event.key==='Enter')wsSend()">
+        <button onclick="wsSend()">Send</button>
+      </div>
+      <div class="out" id="o-ws">idle</div>
+    </div>
+  </section>
+
+  <!-- 12. LOCALSTORAGE -->
+  <section>
+    <h2>12. LocalStorage Persistence <span class="tag">survives reload</span></h2>
+    <div class="body">
+      <button onclick="lsWrite()">Write</button>
+      <button class="sec" onclick="lsRead()">Read</button>
+      <button class="sec" onclick="lsClear()">Clear</button>
+      <div class="out" id="o-ls">idle</div>
+    </div>
+  </section>
+
+  <!-- 13. WAKE LOCK -->
+  <section>
+    <h2>13. Screen Wake Lock <span class="tag https">iOS 16.4+</span></h2>
+    <div class="body">
+      <button onclick="acquireWakeLock()">Acquire Wake Lock</button>
+      <button class="sec" onclick="releaseWakeLock()">Release</button>
+      <div class="out" id="o-wake">idle</div>
+    </div>
+  </section>
+
+  <!-- 14. SPEECH RECOGNITION -->
+  <section>
+    <h2>14. Speech Recognition <span class="tag https">HTTPS req.</span></h2>
+    <div class="body">
+      <button onclick="startSpeech()">Start Listening</button>
+      <button class="sec" onclick="stopSpeech()">Stop</button>
+      <div class="out" id="o-speech">idle</div>
+    </div>
+  </section>
+
+  <!-- 15. STORAGE ESTIMATE -->
+  <section>
+    <h2>15. Storage Estimate <span class="tag">no permission</span></h2>
+    <div class="body">
+      <button onclick="getStorage()">Get Storage Info</button>
+      <div class="out" id="o-storage">idle</div>
+    </div>
+  </section>
+
+  <!-- 16. WEBRTC IP LEAK -->
+  <section>
+    <h2>16. WebRTC IP Leak <span class="tag warn">no permission needed</span></h2>
+    <div class="body">
+      <p class="note">Uses RTCPeerConnection ICE candidates to extract local and public IPs — no user prompt.</p>
+      <button onclick="getWebRTCIPs()">Leak IPs via WebRTC</button>
+      <div class="out" id="o-rtc">idle</div>
+    </div>
+  </section>
+
+  <!-- 17. FILE / IMAGE ACCESS -->
+  <section>
+    <h2>17. File &amp; Image Access <span class="tag">camera roll / files</span></h2>
+    <div class="body">
+      <p class="note">Browser can read files the user selects — including photos from the camera roll.</p>
+      <label style="display:inline-block;margin-bottom:6px">
+        <button onclick="document.getElementById('file-pick').click()">Pick File / Photo</button>
+        <input type="file" id="file-pick" accept="*/*" style="display:none" onchange="handleFilePick(this)">
+      </label>
+      <button class="sec" onclick="document.getElementById('img-pick').click()">Pick Image Only</button>
+      <input type="file" id="img-pick" accept="image/*" style="display:none" onchange="handleFilePick(this)">
+      <div class="out" id="o-file">idle</div>
+      <img id="img-preview" style="display:none;max-width:100%;margin-top:8px;border-radius:6px">
+    </div>
+  </section>
+
+  <!-- 18. WEB SHARE -->
+  <section>
+    <h2>18. Web Share API <span class="tag">iOS Safari ✓</span></h2>
+    <div class="body">
+      <p class="note">Triggers the native iOS share sheet. A page can share arbitrary text, URLs, or files — a social engineering vector to get the user to forward a phishing URL.</p>
+      <button onclick="doShare()">Trigger Share Sheet</button>
+      <div class="out" id="o-share">idle</div>
+    </div>
+  </section>
+
+  <!-- 19. MEDIA RECORDER -->
+  <section>
+    <h2>19. MediaRecorder (Audio Clip) <span class="tag">mic permission</span></h2>
+    <div class="body">
+      <p class="note">Records audio after the mic permission is granted. Produces a playable clip in-page.</p>
+      <button onclick="startRec()">Record 5s</button>
+      <button class="sec" onclick="stopRec()">Stop</button>
+      <div class="out" id="o-rec">idle</div>
+      <audio id="rec-player" controls style="display:none;margin-top:8px;width:100%"></audio>
+    </div>
+  </section>
+
+  <!-- 20. PAYMENT REQUEST -->
+  <section>
+    <h2>20. Payment Request (Apple Pay UI) <span class="tag warn">phishing UX</span></h2>
+    <div class="body">
+      <p class="note">Invokes the native Apple Pay sheet — no payment is processed. Demonstrates how a web page can render a convincing payment prompt.</p>
+      <button onclick="showPayment()">Show Apple Pay Sheet</button>
+      <div class="out" id="o-pay">idle</div>
+    </div>
+  </section>
+
+  <!-- 21. NOTIFICATIONS -->
+  <section>
+    <h2>21. Push Notifications <span class="tag https">iOS 16.4+ WebClip only</span></h2>
+    <div class="body">
+      <button onclick="subscribePush()">Enable Notifications</button>
+      <div class="out" id="o-notif">idle</div>
+    </div>
+  </section>
+
+
+</div>
+<script>
+"use strict";
+// Helper: safely write text (textContent, never innerHTML) to an output node.
+function put(id, txt, cls){
+  var el = document.getElementById(id);
+  el.textContent = txt;
+  el.className = "out" + (cls ? " " + cls : "");
+}
+
+// 1. DEVICE INFO — silent, no permission needed
+(function deviceInfo(){
+  var n = navigator, s = screen, lines = [];
+  lines.push("User-Agent : " + n.userAgent);
+  lines.push("Platform   : " + (n.platform || "n/a"));
+  lines.push("Vendor     : " + (n.vendor || "n/a"));
+  lines.push("Language   : " + n.language + "  [" + (n.languages||[]).join(",") + "]");
+  lines.push("Screen     : " + s.width + "x" + s.height + " @" + (window.devicePixelRatio||1) + "x");
+  lines.push("Viewport   : " + window.innerWidth + "x" + window.innerHeight);
+  lines.push("Timezone   : " + Intl.DateTimeFormat().resolvedOptions().timeZone);
+  lines.push("CPU cores  : " + (n.hardwareConcurrency || "n/a"));
+  lines.push("Mem (GB)   : " + (n.deviceMemory || "n/a"));
+  lines.push("Touch pts  : " + (n.maxTouchPoints || 0));
+  var plugins = [];
+  for (var i=0; i<(n.plugins?n.plugins.length:0); i++) plugins.push(n.plugins[i].name);
+  lines.push("Plugins    : " + (plugins.join(", ") || "none"));
+  put("o-dev", lines.join("\n"));
+})();
+
+// 2. GEOLOCATION
+var _geoWatch=null;
+var GEO_ERRORS={1:"PERMISSION_DENIED — check Settings › Privacy › Location Services › Safari",2:"POSITION_UNAVAILABLE — GPS signal issue, try Low Accuracy",3:"TIMEOUT — took too long, try again"};
+function showGeo(c){
+  put("o-geo",
+    "lat      : " + c.latitude + "\n" +
+    "lon      : " + c.longitude + "\n" +
+    "accuracy : " + c.accuracy + " m\n" +
+    "altitude : " + (c.altitude!=null?c.altitude.toFixed(1)+" m":"n/a") + "\n" +
+    "alt acc  : " + (c.altitudeAccuracy!=null?c.altitudeAccuracy.toFixed(1)+" m":"n/a") + "\n" +
+    "heading  : " + (c.heading!=null?c.heading.toFixed(1)+"°":"n/a") + "\n" +
+    "speed    : " + (c.speed!=null?c.speed.toFixed(2)+" m/s":"n/a"), "ok");
+}
+function geoErr(e){ put("o-geo","Error " + e.code + ": " + (GEO_ERRORS[e.code]||e.message), "bad"); }
+function getGeo(highAcc){
+  if (!navigator.geolocation){ put("o-geo","Geolocation API unavailable","bad"); return; }
+  put("o-geo","requesting… (accuracy: " + (highAcc?"high":"low") + ")");
+  navigator.geolocation.getCurrentPosition(function(p){ showGeo(p.coords); }, geoErr,
+    { enableHighAccuracy:!!highAcc, timeout:15000, maximumAge:0 });
+}
+function watchGeo(){
+  if (!navigator.geolocation){ put("o-geo","Geolocation API unavailable","bad"); return; }
+  if(_geoWatch!=null){ navigator.geolocation.clearWatch(_geoWatch); }
+  put("o-geo","watching position…");
+  _geoWatch=navigator.geolocation.watchPosition(function(p){ showGeo(p.coords); }, geoErr,
+    { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
+}
+function stopGeo(){
+  if(_geoWatch!=null){ navigator.geolocation.clearWatch(_geoWatch); _geoWatch=null; }
+  put("o-geo","watch stopped");
+}
+
+// 3. CAMERA — request permission once, enumerate deviceIds, switch without re-prompting
+var camStream=null, _camDevices=null;
+
+function _startStream(constraints, label){
+  if(camStream){ camStream.getTracks().forEach(function(t){t.stop()}); camStream=null; }
+  navigator.mediaDevices.getUserMedia(constraints).then(function(st){
+    camStream=st;
+    var v=document.getElementById("vid"); v.srcObject=st; v.style.display="block";
+    var t=st.getVideoTracks()[0];
+    put("o-cam","LIVE — "+label+"\ndevice: "+(t?t.label:"?"),"ok");
+  }).catch(function(e){ put("o-cam","error: "+e.name+" "+e.message,"bad"); });
+}
+
+function getCam(facing){
+  if(!navigator.mediaDevices){ put("o-cam","getUserMedia unavailable","bad"); return; }
+  var label=(facing==="user"?"front":"rear")+" camera";
+  // If we already have device IDs, switch with no re-prompt
+  if(_camDevices){
+    var id=facing==="user"?_camDevices.front:_camDevices.back;
+    var c=id?{video:{deviceId:{exact:id}}}:{video:{facingMode:{ideal:facing}}};
+    _startStream(c, label); return;
+  }
+  // First time — get permission then enumerate
+  put("o-cam","requesting permission…");
+  navigator.mediaDevices.getUserMedia({video:true}).then(function(tmp){
+    tmp.getTracks().forEach(function(t){t.stop()});
+    return navigator.mediaDevices.enumerateDevices();
+  }).then(function(devs){
+    _camDevices={front:null, back:null};
+    devs.filter(function(d){return d.kind==="videoinput";}).forEach(function(d){
+      var l=d.label.toLowerCase();
+      if(l.includes("front")||l.includes("facetime")) _camDevices.front=_camDevices.front||d.deviceId;
+      else _camDevices.back=_camDevices.back||d.deviceId;
+    });
+    var id=facing==="user"?_camDevices.front:_camDevices.back;
+    var c=id?{video:{deviceId:{exact:id}}}:{video:{facingMode:{ideal:facing}}};
+    _startStream(c, label);
+  }).catch(function(e){ put("o-cam","DENIED: "+e.message,"bad"); });
+}
+
+function stopCam(){
+  if(camStream){ camStream.getTracks().forEach(function(t){t.stop()}); camStream=null; }
+  var v=document.getElementById("vid"); v.style.display="none"; v.srcObject=null;
+  put("o-cam","stopped");
+}
+
+// 4. MICROPHONE — VU meter via WebAudio
+var micStream=null, micCtx=null, micRAF=null;
+function getMic(){
+  if (!navigator.mediaDevices){ put("o-mic","getUserMedia unavailable","bad"); return; }
+  put("o-mic","requesting microphone…");
+  navigator.mediaDevices.getUserMedia({audio:true}).then(function(st){
+    micStream=st;
+    micCtx=new (window.AudioContext||window.webkitAudioContext)();
+    var src=micCtx.createMediaStreamSource(st);
+    var an=micCtx.createAnalyser(); an.fftSize=256;
+    src.connect(an);
+    var data=new Uint8Array(an.frequencyBinCount);
+    put("o-mic","LIVE — microphone access granted (VU meter active)","ok");
+    (function loop(){
+      an.getByteFrequencyData(data);
+      var sum=0; for(var i=0;i<data.length;i++) sum+=data[i];
+      var lvl=Math.min(100,(sum/data.length)/128*100);
+      document.getElementById("vu").style.width=lvl.toFixed(0)+"%";
+      micRAF=requestAnimationFrame(loop);
+    })();
+  }).catch(function(e){ put("o-mic","DENIED / error: " + e.name + " " + e.message, "bad"); });
+}
+function stopMic(){
+  if(micRAF) cancelAnimationFrame(micRAF);
+  if(micStream){ micStream.getTracks().forEach(function(t){t.stop();}); micStream=null; }
+  if(micCtx){ micCtx.close(); micCtx=null; }
+  document.getElementById("vu").style.width="0";
+  put("o-mic","stopped");
+}
+
+// 5. MOTION / ORIENTATION
+var _motionHandlers=null;
+function startMotion(){
+  function fmt(v){ return v==null?"n/a":(+v).toFixed(2); }
+  function bind(){
+    var ohFn=function(e){
+      put("o-motion",
+        "orientation alpha: " + fmt(e.alpha) + "  beta: " + fmt(e.beta) +
+        "  gamma: " + fmt(e.gamma), "ok");
+    };
+    var dmFn=function(e){
+      var a=e.accelerationIncludingGravity||{};
+      var el=document.getElementById("o-motion");
+      el.textContent += "\naccel x:" + fmt(a.x) + " y:" + fmt(a.y) + " z:" + fmt(a.z);
+    };
+    window.addEventListener("deviceorientation", ohFn);
+    window.addEventListener("devicemotion", dmFn);
+    _motionHandlers={orientation:ohFn, motion:dmFn};
+  }
+  if (typeof DeviceMotionEvent!=="undefined" &&
+      typeof DeviceMotionEvent.requestPermission==="function"){
+    DeviceMotionEvent.requestPermission().then(function(r){
+      if(r==="granted"){ bind(); put("o-motion","permission granted, listening…"); }
+      else put("o-motion","permission "+r,"bad");
+    }).catch(function(e){ put("o-motion","error: "+e.message,"bad"); });
+  } else { bind(); put("o-motion","listening (no explicit permission API)…"); }
+}
+function stopMotion(){
+  if(_motionHandlers){
+    window.removeEventListener("deviceorientation", _motionHandlers.orientation);
+    window.removeEventListener("devicemotion", _motionHandlers.motion);
+    _motionHandlers=null;
+  }
+  put("o-motion","stopped");
+}
+
+// 6. CLIPBOARD
+function readClip(){
+  if(!navigator.clipboard||!navigator.clipboard.readText){
+    put("o-clip","clipboard.readText unavailable","bad"); return; }
+  navigator.clipboard.readText().then(function(t){
+    put("o-clip","clipboard contents:\n" + t, "ok");
+  }).catch(function(e){ put("o-clip","DENIED / error: "+e.message,"bad"); });
+}
+function writeClip(){
+  var payload="clipboard-write-test-"+Date.now();
+  if(!navigator.clipboard||!navigator.clipboard.writeText){
+    put("o-clip","clipboard.writeText unavailable","bad"); return; }
+  navigator.clipboard.writeText(payload).then(function(){
+    put("o-clip","wrote to clipboard: "+payload+"\n(paste anywhere to confirm)","ok");
+  }).catch(function(e){ put("o-clip","DENIED / error: "+e.message,"bad"); });
+}
+
+// 7. CREDENTIAL CAPTURE — local display only, no network
+function capture(ev){
+  ev.preventDefault();
+  if(document.activeElement) document.activeElement.blur();
+  var u=document.getElementById("cap-u").value;
+  var p=document.getElementById("cap-p").value;
+  put("o-cap",
+    "CAPTURED LOCALLY — proves credential harvest vector\n" +
+    "(no POST sent; a real attacker page would exfil here)\n" +
+    "email    : " + (u||"(empty)") + "\n" +
+    "password : " + (p||"(empty)"), "warn");
+  document.getElementById("o-cap").scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+
+// 8. URL SCHEMES
+function scheme(uri){
+  put("o-scheme","invoking: " + uri + "\n(iOS will prompt / hand off to native app)");
+  window.location.href=uri;
+}
+
+// 9. WEBSOCKET — live echo
+var _ws=null;
+var _wsLog=[];
+function wsLog(line,cls){
+  _wsLog.push({t:new Date().toLocaleTimeString(),line:line,cls:cls||""});
+  if(_wsLog.length>20)_wsLog.shift();
+  var el=document.getElementById("o-ws");
+  el.textContent=_wsLog.map(function(e){return "["+e.t+"] "+e.line;}).join("\n");
+  el.className="out"+(_wsLog[_wsLog.length-1].cls?" "+_wsLog[_wsLog.length-1].cls:"");
+}
+function wsConnect(){
+  if(_ws&&_ws.readyState<2){ wsLog("already connected","warn"); return; }
+  wsLog("connecting…");
+  var wsUrl=(location.protocol==="https:"?"wss://":"ws://")+location.host+"/ws";
+  _ws=new WebSocket(wsUrl);
+  _ws.onopen=function(){ wsLog("CONNECTED to wss://echo.websocket.events","ok"); };
+  _ws.onmessage=function(e){ wsLog("← received: "+e.data,"ok"); };
+  _ws.onerror=function(){ wsLog("connection error","bad"); };
+  _ws.onclose=function(c){ wsLog("closed (code "+c.code+")"); };
+}
+function wsDisconnect(){
+  if(_ws){ _ws.close(); _ws=null; } else wsLog("not connected","warn");
+}
+function wsSend(){
+  var inp=document.getElementById("ws-msg");
+  var msg=inp.value.trim(); if(!msg) return;
+  if(!_ws||_ws.readyState!==1){ wsLog("not connected — click Connect first","bad"); return; }
+  _ws.send(msg); wsLog("→ sent: "+msg);
+  inp.value="";
+}
+
+// 11. LOCALSTORAGE
+function lsWrite(){
+  try { localStorage.setItem("poc_persist","set @ "+new Date().toISOString());
+        put("o-ls","wrote poc_persist — reload the page and Read","ok"); }
+  catch(e){ put("o-ls","error: "+e.message,"bad"); }
+}
+function lsRead(){
+  try { var v=localStorage.getItem("poc_persist");
+        put("o-ls", v?("poc_persist = "+v+"\n(survived reload → persistent tracking)"):"not set", v?"ok":"warn"); }
+  catch(e){ put("o-ls","error: "+e.message,"bad"); }
+}
+function lsClear(){ try{ localStorage.removeItem("poc_persist"); put("o-ls","cleared"); }catch(e){} }
+
+// 12. FULLSCREEN / STANDALONE STATE
+(function fsState(){
+  var standalone = ("standalone" in navigator) ? navigator.standalone : false;
+  var dm = window.matchMedia &&
+           window.matchMedia("(display-mode: standalone)").matches;
+  put("o-fs",
+    "navigator.standalone        : " + standalone + "\n" +
+    "display-mode: standalone    : " + !!dm + "\n" +
+    (standalone || dm
+      ? ">> Running as WebClip/standalone — NO address bar, NO TLS indicator visible to user."
+      : ">> Running in normal Safari tab. Install to Home Screen to see FullScreen state."),
+    (standalone||dm) ? "warn" : "");
+})();
+
+// Hide header on scroll down, show on scroll up
+(function(){
+  var lastY=0, hdr=document.querySelector("header");
+  window.addEventListener("scroll",function(){
+    var y=window.scrollY||window.pageYOffset;
+    hdr.classList.toggle("hidden", y>lastY && y>60);
+    lastY=y;
+  },{passive:true});
+})();
+
+// 13. NOTIFICATIONS
+var _swReg=null;
+
+function _getSW(){
+  if(_swReg) return Promise.resolve(_swReg);
+  if(!("serviceWorker" in navigator)) return Promise.resolve(null);
+  return navigator.serviceWorker.register("/sw.js")
+    .then(function(r){ _swReg=r; return navigator.serviceWorker.ready; })
+    .then(function(r){ _swReg=r; return r; })
+    .catch(function(){ return null; });
+}
+
+// Show notification: system banner via SW, + in-page banner when visible
+function _showNotif(title, body){
+  // In-page banner when page is visible
+  if(document.visibilityState!=="hidden"){
+    var banner=document.createElement("div");
+    banner.style.cssText="position:fixed;top:12px;left:50%;transform:translateX(-50%);" +
+      "background:#1c2128;border:1px solid #30363d;border-radius:12px;padding:12px 16px;" +
+      "z-index:9999;max-width:320px;width:90%;box-shadow:0 4px 20px rgba(0,0,0,.5);animation:slideIn .2s ease";
+    banner.innerHTML="<div style='font-weight:700;font-size:13px;color:#e6edf3'>"+title+"</div>" +
+      "<div style='font-size:12px;color:#8b949e;margin-top:3px'>"+body+"</div>";
+    document.body.appendChild(banner);
+    setTimeout(function(){ banner.remove(); }, 4000);
+  }
+  // System notification via SW
+  return _getSW().then(function(reg){
+    if(reg && reg.showNotification) return reg.showNotification(title,{body:body});
+    if(Notification.permission==="granted") return new Notification(title,{body:body});
+  });
+}
+
+function reqNotif(){
+  if(!("Notification" in window)){ put("o-notif","Notification API unavailable (requires iOS 16.4+ installed as WebClip)","bad"); return; }
+  put("o-notif","requesting permission…");
+  Notification.requestPermission().then(function(r){
+    if(r==="granted"){
+      _getSW().then(function(reg){
+        put("o-notif","permission granted"+(reg?" + Service Worker ready":" (no SW)")+" ✓","ok");
+      });
+    } else {
+      put("o-notif","permission: "+r,"bad");
+    }
+  });
+}
+
+function sendNotif(){
+  if(!("Notification" in window)||Notification.permission!=="granted"){ put("o-notif","permission not granted — request first","bad"); return; }
+  _showNotif("WebClip Capabilities Demo","Sent at "+new Date().toLocaleTimeString());
+  put("o-notif","notification sent ✓","ok");
+}
+
+var _notifScheduled=false;
+function scheduleNotif(){
+  if(!("Notification" in window)||Notification.permission!=="granted"){ put("o-notif","permission not granted — request first","bad"); return; }
+  if(_notifScheduled){ put("o-notif","already armed — leave the app","warn"); return; }
+  _notifScheduled=true;
+  put("o-notif","armed ✓ — leave the app, notification in 5s","ok");
+  _getSW().then(function(reg){
+    // Delegate timer to SW so iOS freeze of page JS doesn't matter
+    if(reg && reg.active){
+      reg.active.postMessage({
+        type:"scheduleNotif", delay:5000,
+        title:"WebClip Demo",
+        body:"5s after you left ("+new Date().toLocaleTimeString()+")"
+      });
+    } else {
+      // SW not ready — fallback: fire on visibilitychange
+      document.addEventListener("visibilitychange",function onHide(){
+        if(document.visibilityState==="hidden"){
+          document.removeEventListener("visibilitychange",onHide);
+          setTimeout(function(){
+            _showNotif("WebClip Demo","You left at "+new Date().toLocaleTimeString());
+            _notifScheduled=false;
+          },5000);
+        }
+      });
+    }
+    // reset flag after arming (not before SW fires)
+    setTimeout(function(){ _notifScheduled=false; },6000);
+  });
+}
+
+// 14. WAKE LOCK
+var _wakeLock=null;
+function acquireWakeLock(){
+  if(!("wakeLock" in navigator)){ put("o-wake","Wake Lock API unavailable","bad"); return; }
+  navigator.wakeLock.request("screen").then(function(wl){
+    _wakeLock=wl;
+    put("o-wake","Wake lock acquired — screen will not dim","ok");
+    wl.addEventListener("release",function(){ put("o-wake","Wake lock released (system)"); _wakeLock=null; });
+  }).catch(function(e){ put("o-wake","error: "+e.name+" "+e.message,"bad"); });
+}
+function releaseWakeLock(){
+  if(_wakeLock){ _wakeLock.release(); _wakeLock=null; put("o-wake","released"); }
+  else put("o-wake","no active wake lock");
+}
+
+// 17. SPEECH RECOGNITION
+var _recognition=null;
+function startSpeech(){
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ put("o-speech","SpeechRecognition API unavailable","bad"); return; }
+  if(_recognition){ _recognition.stop(); }
+  _recognition=new SR();
+  _recognition.continuous=true;
+  _recognition.interimResults=true;
+  _recognition.lang=navigator.language||"en-US";
+  _recognition.onstart=function(){ put("o-speech","listening…","ok"); };
+  _recognition.onresult=function(e){
+    var transcript="";
+    for(var i=e.resultIndex;i<e.results.length;i++){
+      transcript+=e.results[i][0].transcript+(e.results[i].isFinal?"\n":"…");
+    }
+    put("o-speech","transcript:\n"+transcript,"ok");
+  };
+  _recognition.onerror=function(e){ put("o-speech","error: "+e.error,"bad"); };
+  _recognition.onend=function(){ if(_recognition) put("o-speech","stopped"); };
+  _recognition.start();
+}
+function stopSpeech(){
+  if(_recognition){ _recognition.stop(); _recognition=null; }
+  put("o-speech","stopped");
+}
+
+// 18. STORAGE ESTIMATE
+function getStorage(){
+  if(!navigator.storage||!navigator.storage.estimate){ put("o-storage","StorageManager API unavailable","bad"); return; }
+  navigator.storage.estimate().then(function(e){
+    var used=e.usage!=null?(e.usage/1024/1024).toFixed(2)+"MB":"n/a";
+    var quota=e.quota!=null?(e.quota/1024/1024/1024).toFixed(2)+"GB":"n/a";
+    put("o-storage","quota : "+quota+"\nused  : "+used,"ok");
+  }).catch(function(e){ put("o-storage","error: "+e.message,"bad"); });
+}
+
+// 19. WEBRTC IP LEAK
+function getWebRTCIPs(){
+  if(!window.RTCPeerConnection){ put("o-rtc","RTCPeerConnection unavailable","bad"); return; }
+  put("o-rtc","gathering ICE candidates…");
+  var ips=[];
+  var pc=new RTCPeerConnection({iceServers:[{urls:"stun:stun.l.google.com:19302"}]});
+  pc.createDataChannel("");
+  pc.createOffer().then(function(o){ return pc.setLocalDescription(o); });
+  pc.onicecandidate=function(e){
+    if(!e.candidate) return;
+    var m=e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/g);
+    if(m) m.forEach(function(ip){ if(ips.indexOf(ip)<0) ips.push(ip); });
+    put("o-rtc","IPs found:\n"+ips.join("\n")+(ips.length===0?" (none yet)":""),"ok");
+  };
+  setTimeout(function(){ pc.close(); if(ips.length===0) put("o-rtc","no IPs leaked (browser blocked or no candidates)","warn"); },5000);
+}
+
+// 18. WEB SHARE
+function doShare(){
+  if(!navigator.share){ put("o-share","Web Share API unavailable","bad"); return; }
+  navigator.share({
+    title:"Check this out",
+    text:"Interesting content I found",
+    url:location.href
+  }).then(function(){ put("o-share","share sheet triggered ✓","ok"); })
+    .catch(function(e){ put("o-share",e.name===("AbortError")?"user cancelled":e.name+": "+e.message,"warn"); });
+}
+
+// 22. MEDIA RECORDER
+var _recStream=null, _recorder=null, _recChunks=[];
+function startRec(){
+  if(!window.MediaRecorder){ put("o-rec","MediaRecorder unavailable","bad"); return; }
+  navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
+    _recStream=stream; _recChunks=[];
+    _recorder=new MediaRecorder(stream);
+    _recorder.ondataavailable=function(e){ if(e.data.size>0) _recChunks.push(e.data); };
+    _recorder.onstop=function(){
+      var blob=new Blob(_recChunks,{type:'audio/mp4'});
+      var url=URL.createObjectURL(blob);
+      var player=document.getElementById('rec-player');
+      player.src=url; player.style.display='block';
+      put("o-rec","recorded "+(blob.size/1024).toFixed(1)+"KB — playback below","ok");
+      _recStream.getTracks().forEach(function(t){t.stop();});
+    };
+    _recorder.start();
+    put("o-rec","recording… (auto-stops in 5s)","ok");
+    setTimeout(function(){ if(_recorder&&_recorder.state==='recording') stopRec(); },5000);
+  }).catch(function(e){ put("o-rec","error: "+e.name+": "+e.message,"bad"); });
+}
+function stopRec(){
+  if(_recorder&&_recorder.state==='recording'){ _recorder.stop(); }
+  else put("o-rec","not recording","warn");
+}
+
+// 23. CANVAS / WEBGL FINGERPRINT
+function getFingerprint(){
+  var lines=[];
+  // WebGL GPU info
+  var gl=document.createElement('canvas').getContext('webgl')||document.createElement('canvas').getContext('experimental-webgl');
+  if(gl){
+    var ext=gl.getExtension('WEBGL_debug_renderer_info');
+    if(ext){
+      lines.push("GPU vendor  : "+gl.getParameter(ext.UNMASKED_VENDOR_WEBGL));
+      lines.push("GPU renderer: "+gl.getParameter(ext.UNMASKED_RENDERER_WEBGL));
+    }
+    lines.push("WebGL ver   : "+gl.getParameter(gl.VERSION));
+    lines.push("GLSL ver    : "+gl.getParameter(gl.SHADING_LANGUAGE_VERSION));
+  }
+  // Canvas hash
+  var cv=document.createElement('canvas'); cv.width=200; cv.height=40;
+  var ctx=cv.getContext('2d');
+  ctx.textBaseline='top'; ctx.font='14px Arial';
+  ctx.fillStyle='#f60'; ctx.fillRect(125,1,62,20);
+  ctx.fillStyle='#069'; ctx.fillText('BrowserFingerprint',2,15);
+  ctx.fillStyle='rgba(102,204,0,0.7)'; ctx.fillText('BrowserFingerprint',4,17);
+  var dataURL=cv.toDataURL();
+  // simple hash
+  var hash=0; for(var i=0;i<dataURL.length;i++) hash=(hash<<5)-hash+dataURL.charCodeAt(i)|0;
+  lines.push("Canvas hash : 0x"+(hash>>>0).toString(16).toUpperCase());
+  // Device
+  lines.push("Pixel ratio : "+window.devicePixelRatio);
+  lines.push("Screen      : "+screen.width+"×"+screen.height+" @"+screen.colorDepth+"bit");
+  lines.push("Cores       : "+navigator.hardwareConcurrency);
+  if(navigator.deviceMemory) lines.push("RAM (approx): "+navigator.deviceMemory+"GB");
+  put("o-fp",lines.join("\n"),"ok");
+}
+
+// 24. PAYMENT REQUEST
+function showPayment(){
+  if(!window.PaymentRequest){ put("o-pay","PaymentRequest API unavailable","bad"); return; }
+  var methods=[{supportedMethods:'https://apple.com/apple-pay',data:{version:3,merchantIdentifier:'merchant.com.demo',merchantCapabilities:['supports3DS'],supportedNetworks:['visa','masterCard','amex'],countryCode:'IL'}},{supportedMethods:'basic-card',data:{supportedNetworks:['visa','mastercard','amex']}}];
+  var details={total:{label:'Subscription Fee',amount:{currency:'ILS',value:'49.90'}},displayItems:[{label:'Monthly plan',amount:{currency:'ILS',value:'49.90'}}]};
+  var req=new PaymentRequest(methods,details);
+  req.canMakePayment().then(function(can){
+    put("o-pay","canMakePayment: "+can+" — showing sheet…","ok");
+    return req.show();
+  }).then(function(resp){
+    put("o-pay","card: "+resp.methodName+"\nnonce/token: "+(resp.details.paymentToken||JSON.stringify(resp.details).substring(0,80)),"ok");
+    resp.complete('success');
+  }).catch(function(e){ put("o-pay",""+e.name+": "+e.message,"warn"); });
+}
+
+// 20. FILE / IMAGE ACCESS
+function handleFilePick(input){
+  var file = input.files[0];
+  if(!file){ put("o-file","no file selected"); return; }
+  var info = "Name : "+file.name+"\nType : "+(file.type||"unknown")+"\nSize : "+(file.size/1024).toFixed(1)+" KB\nLast modified: "+new Date(file.lastModified).toLocaleString();
+  put("o-file",info,"ok");
+  var preview = document.getElementById("img-preview");
+  if(file.type.startsWith("image/")){
+    var reader = new FileReader();
+    reader.onload = function(e){ preview.src=e.target.result; preview.style.display="block"; };
+    reader.readAsDataURL(file);
+  } else {
+    preview.style.display="none";
+  }
+}
+
+// SERVER PUSH
+function _urlBase64ToUint8(base64String){
+  var padding='='.repeat((4-base64String.length%4)%4);
+  var base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
+  var raw=atob(base64);
+  var arr=new Uint8Array(raw.length);
+  for(var i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i);
+  return arr;
+}
+
+function subscribePush(){
+  if(!("Notification" in window)){
+    put("o-notif","Notification API unavailable (requires iOS 16.4+ installed as WebClip)","bad"); return;
+  }
+  if(!("serviceWorker" in navigator)||!("PushManager" in window)){
+    put("o-notif","Web Push not available in this browser","bad"); return;
+  }
+  put("o-notif","requesting permission…");
+  Notification.requestPermission().then(function(perm){
+    if(perm!=="granted"){ put("o-notif","permission denied","bad"); return; }
+    put("o-notif","permission granted — subscribing to server push…","ok");
+    _doSubscribe();
+  });
+}
+function _doSubscribe(){
+  var origin=location.origin;
+  _getSW().then(function(reg){
+    if(!reg){ put("o-notif","Service Worker not ready","bad"); return; }
+    // Unsubscribe any existing subscription first (different VAPID key causes InvalidStateError)
+    return reg.pushManager.getSubscription().then(function(existing){
+      if(existing){ put("o-notif","removing old subscription…"); return existing.unsubscribe(); }
+    }).then(function(){
+      return fetch(origin+"/vapid-public-key")
+      .then(function(r){ return r.text(); })
+      .then(function(vapidKey){
+        return reg.pushManager.subscribe({
+          userVisibleOnly:true,
+          applicationServerKey:_urlBase64ToUint8(vapidKey)
+        });
+      })
+      .then(function(sub){
+        return fetch(origin+"/subscribe",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify(sub.toJSON())
+        });
+      })
+      .then(function(r){
+        if(r.ok) put("o-notif","subscribed to server push ✓","ok");
+        else put("o-notif","subscribe failed: "+r.status,"bad");
+      });
+    });
+  }).catch(function(e){ put("o-notif","error: "+e.name+": "+e.message,"bad"); });
+}
+
+function triggerBurst(){
+  put("o-notif","arming burst — background the app now…","ok");
+  fetch(location.origin+"/push-burst",{method:"POST"})
+    .then(function(r){ return r.json(); })
+    .then(function(d){ put("o-notif","burst armed ✓ — "+d.count+"× push every "+d.interval_s+"s coming. Go to home screen!","ok"); })
+    .catch(function(e){ put("o-notif","error: "+e.message,"bad"); });
+}
+
+function triggerServerPush(){
+  put("o-notif","sending server push…");
+  fetch(location.origin+"/push",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({title:"Server Push",message:"Pushed at "+new Date().toLocaleTimeString()})
+  }).then(function(r){ return r.json(); })
+    .then(function(d){ put("o-notif","server push sent — "+JSON.stringify(d),"ok"); })
+    .catch(function(e){ put("o-notif","error: "+e.message,"bad"); });
+}
+</script>
+</body>
+</html>

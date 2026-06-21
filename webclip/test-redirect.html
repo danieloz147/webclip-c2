@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Redirect Test</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #111; color: #eee; font-family: monospace; padding: 20px; font-size: 15px; }
+h2 { color: #0af; margin-bottom: 4px; font-size: 16px; }
+p { color: #888; font-size: 12px; margin-bottom: 16px; }
+button {
+  display: block; width: 100%; padding: 14px;
+  margin-bottom: 10px; background: #1a1a2e;
+  color: #fff; border: 1px solid #0af;
+  border-radius: 8px; font-size: 14px;
+  font-family: monospace; cursor: pointer;
+  text-align: left;
+}
+button:active { background: #0af; color: #000; }
+#status { margin-top: 16px; padding: 12px; background: #0a1628; border-radius: 8px; font-size: 13px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<h2>Navigation Test</h2>
+<p>standalone: <span id="sa"></span> | protocol: <span id="pr"></span></p>
+
+<button onclick="test1()">1. location.href = http://</button>
+<button onclick="test2()">2. location.replace(http://)</button>
+<button onclick="test3()">3. location.assign(http://)</button>
+<button onclick="test4()">4. &lt;a href=http:// target=_self&gt; .click()</button>
+<button onclick="test5()">5. &lt;a href=http:// target=_blank&gt; .click()</button>
+<button onclick="test6()">6. &lt;meta refresh&gt; to http://</button>
+<button onclick="test7()">7. window.open(http://)</button>
+<button onclick="test8()">8. fetch(http://) [mixed content test]</button>
+<button onclick="test9()">9. fetch(http://) mode:no-cors</button>
+<button onclick="test10()">10. XMLHttpRequest to http://</button>
+<button onclick="test11()">11. &lt;form action=http://&gt; submit</button>
+<button onclick="test12()">12. document.location = http://</button>
+<button onclick="test13()">13. navigation.navigate(http://)</button>
+<button onclick="test14()">14. &lt;iframe src="http://"&gt; hidden</button>
+<button onclick="test15()">15. &lt;iframe srcdoc&gt; → location.href http://</button>
+<button onclick="test16()">16. &lt;iframe sandbox&gt; src="http://"</button>
+
+<div id="status">לחץ על כפתור לבדיקה</div>
+
+<script>
+var TARGET = 'http://rb.clalitapp.info/test-mode';
+var s = document.getElementById('status');
+document.getElementById('sa').textContent = navigator.standalone;
+document.getElementById('pr').textContent = location.protocol;
+
+function log(msg) { s.innerHTML = msg; }
+
+function test1() { log('בודק 1...'); window.location.href = TARGET; }
+function test2() { log('בודק 2...'); window.location.replace(TARGET); }
+function test3() { log('בודק 3...'); window.location.assign(TARGET); }
+function test4() {
+  log('בודק 4...');
+  var a = document.createElement('a');
+  a.href = TARGET; a.target = '_self'; document.body.appendChild(a); a.click(); a.remove();
+}
+function test5() {
+  log('בודק 5...');
+  var a = document.createElement('a');
+  a.href = TARGET; a.target = '_blank'; document.body.appendChild(a); a.click(); a.remove();
+}
+function test6() {
+  log('בודק 6 — meta refresh...');
+  var m = document.createElement('meta');
+  m.httpEquiv = 'refresh'; m.content = '1;url=' + TARGET;
+  document.head.appendChild(m);
+}
+function test7() {
+  log('בודק 7...');
+  var w = window.open(TARGET, '_blank');
+  log('window.open returned: ' + (w ? 'object' : 'null/blocked'));
+}
+function test8() {
+  log('בודק 8 — fetch...');
+  fetch(TARGET, {mode: 'cors'})
+    .then(function(r){ log('fetch OK — status: ' + r.status + ' (no Safari opened!)'); })
+    .catch(function(e){ log('fetch error: ' + e.message); });
+}
+function test9() {
+  log('בודק 9 — fetch no-cors...');
+  fetch(TARGET, {mode: 'no-cors'})
+    .then(function(r){ log('fetch no-cors OK — type: ' + r.type + ' (no Safari opened!)'); })
+    .catch(function(e){ log('fetch no-cors error: ' + e.message); });
+}
+function test10() {
+  log('בודק 10 — XHR...');
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', TARGET);
+  xhr.onload = function(){ log('XHR OK — status: ' + xhr.status + ' (no Safari opened!)'); };
+  xhr.onerror = function(){ log('XHR error'); };
+  xhr.send();
+}
+function test11() {
+  log('בודק 11 — form submit...');
+  var f = document.createElement('form');
+  f.action = TARGET; f.method = 'GET'; f.target = '_self';
+  document.body.appendChild(f); f.submit(); f.remove();
+}
+function test12() { log('בודק 12...'); document.location = TARGET; }
+function test13() {
+  log('בודק 13 — navigation.navigate...');
+  if (typeof navigation !== 'undefined' && navigation.navigate) {
+    navigation.navigate(TARGET).catch(function(e){ log('navigation.navigate error: ' + e); });
+  } else {
+    log('navigation API לא זמין בדפדפן זה');
+  }
+}
+function test14() {
+  log('בודק 14 — iframe hidden...');
+  var f = document.createElement('iframe');
+  f.src = TARGET; f.style.cssText='position:fixed;width:1px;height:1px;opacity:0;top:0;left:0';
+  document.body.appendChild(f);
+  f.onload = function(){ log('iframe onload fired — src loaded! (no Safari?)'); };
+  f.onerror = function(){ log('iframe onerror — blocked'); };
+  setTimeout(function(){ log('iframe result after 3s: still in page, no Safari? Check network.'); }, 3000);
+}
+function test15() {
+  log('בודק 15 — iframe srcdoc → location.href...');
+  var f = document.createElement('iframe');
+  f.srcdoc = '<script>location.href="'+TARGET+'"<\/script>';
+  f.style.cssText='position:fixed;width:1px;height:1px;opacity:0;top:0;left:0';
+  document.body.appendChild(f);
+  setTimeout(function(){ log('srcdoc iframe — Safari נפתח?'); }, 2000);
+}
+function test16() {
+  log('בודק 16 — sandbox iframe...');
+  var f = document.createElement('iframe');
+  f.src = TARGET;
+  f.setAttribute('sandbox','allow-scripts allow-same-origin allow-top-navigation');
+  f.style.cssText='position:fixed;width:1px;height:1px;opacity:0;top:0;left:0';
+  document.body.appendChild(f);
+  f.onload = function(){ log('sandbox iframe onload — loaded!'); };
+  setTimeout(function(){ log('sandbox iframe — Safari נפתח?'); }, 3000);
+}
+</script>
+</body>
+</html>

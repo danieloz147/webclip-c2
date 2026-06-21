@@ -1,0 +1,53 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- iOS-style rounded square -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <!-- Subtle inner border -->
+  <rect x="1" y="1" width="510" height="510" rx="111" fill="none"
+        stroke="rgba(255,255,255,0.06)" stroke-width="1.5"/>
+
+  <!-- Grid dot texture (5×5 grid, subtle) -->
+  <g opacity="0.07" fill="#60a5fa">
+    <circle cx="128" cy="128" r="2.5"/><circle cx="256" cy="128" r="2.5"/><circle cx="384" cy="128" r="2.5"/>
+    <circle cx="128" cy="256" r="2.5"/><circle cx="256" cy="256" r="2.5"/><circle cx="384" cy="256" r="2.5"/>
+    <circle cx="128" cy="384" r="2.5"/><circle cx="256" cy="384" r="2.5"/><circle cx="384" cy="384" r="2.5"/>
+  </g>
+
+  <!-- W shape: two V strokes forming a W -->
+  <!-- Left V: left outer leg down, right outer leg up to center valley -->
+  <polyline
+    points="78,148  148,364  218,184  256,300  294,184  364,364  434,148"
+    fill="none" stroke="white" stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Blue accent: thin horizontal rule above W -->
+  <rect x="78" y="108" width="356" height="4" rx="2" fill="url(#blue)" opacity="0.9"/>
+
+  <!-- Blue hook at bottom-right — the "clip" in WebClip -->
+  <path d="M 434 364 Q 460 364 460 338 L 460 318"
+        stroke="url(#blue)" stroke-width="18" fill="none"
+        stroke-linecap="round" filter="url(#glow)"/>
+  <circle cx="460" cy="306" r="10" fill="#60a5fa" filter="url(#glow)"/>
+
+  <!-- C2 label — bottom right, monospace feel -->
+  <text x="438" y="468"
+        font-family="'Courier New', Courier, monospace"
+        font-size="56" font-weight="700"
+        text-anchor="end"
+        fill="url(#blue)" opacity="0.95"
+        letter-spacing="2">C2</text>
+</svg>

@@ -1,0 +1,43 @@
+vapid_keys.json
+subscriptions.json
+encrypted.data
+serve.log
+tunnel.log
+server.log
+server.pid
+dist-server.log
+__pycache__/
+*.pyc
+backend/data/
+data/
+certs/
+media/
+dist/
+frontend/server.pid
+backend/__pycache__/
+backend/**/__pycache__/
+.env
+*.env
+*.db
+*.db-shm
+*.db-wal
+*.log
+*.pid
+captures/
+relay_*.json
+rebind.log
+safe-mode-output.txt
+
+# Apple proprietary fonts — install separately (see README)
+webclip/SF-Pro-*.otf
+
+# Frontend dev artifacts
+frontend/node_modules/
+frontend/.vite/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+docs/
